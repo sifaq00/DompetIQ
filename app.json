@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "dompetiq-personal",
+    "name": "DompetIQ Personal",
     "slug": "dompetiq-personal",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,9 +12,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dompetiq.personal"
     },
     "android": {
+      "package": "com.dompetiq.personal",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -25,6 +27,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-font",
+      "react-native-vision-camera",
+      "react-native-document-scanner-plugin"
+    ]
   }
 }
