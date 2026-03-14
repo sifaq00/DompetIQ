@@ -1,5 +1,4 @@
 import { CreateTransactionInput, Transaction } from "../models/transaction";
-import { openDatabaseAsync } from "expo-sqlite";
 import { CreateRecurringExpenseInput, RecurringExpense } from "../models/recurringExpense";
 
 export const DEFAULT_CATEGORY_NAMES = [
@@ -42,7 +41,7 @@ export interface TransactionRepository {
   removeRecurringExpense(id: string): Promise<boolean>;
 }
 
-type DbInstance = Awaited<ReturnType<typeof openDatabaseAsync>>;
+type DbInstance = Awaited<ReturnType<(typeof import('expo-sqlite'))['openDatabaseAsync']>>;
 
 type TransactionRow = {
   id: string;
@@ -60,6 +59,17 @@ type CategoryRow = {
   name: string;
   monthly_limit: number | null;
   is_default: number;
+};
+
+type RecurringExpenseRow = {
+  id: string;
+  name: string;
+  amount: number;
+  cycle: RecurringExpense['cycle'];
+  next_date: string;
+  active: number;
+  created_at: string;
+  updated_at: string;
 };
 
 export type CategoryItem = {
@@ -368,7 +378,9 @@ export class SQLiteTransactionRepository implements TransactionRepository {
 
   private async getDb(): Promise<DbInstance> {
     if (!this.dbPromise) {
-      this.dbPromise = openDatabaseAsync("dompetiq-personal.db");
+      this.dbPromise = import('expo-sqlite').then(({ openDatabaseAsync }) =>
+        openDatabaseAsync("dompetiq-personal.db"),
+      );
     }
 
     const db = await this.dbPromise;
@@ -613,7 +625,7 @@ export class SQLiteTransactionRepository implements TransactionRepository {
   
   async listRecurringExpenses(): Promise<RecurringExpense[]> {
     const db = await this.getDb();
-    const rows = await db.getAllAsync<any>(
+    const rows = await db.getAllAsync<RecurringExpenseRow>(
       "SELECT id, name, amount, cycle, next_date, active, created_at, updated_at FROM recurring_expenses ORDER BY next_date ASC"
     );
     return rows.map(row => ({

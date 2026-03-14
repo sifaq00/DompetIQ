@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, Pressable, ActivityIndicator } from 'react-native';
+import { Modal, View, Text, Pressable, ActivityIndicator, Alert, Platform } from 'react-native';
 import { Camera as CameraIcon, X, Zap } from 'lucide-react-native';
-import DocumentScanner from 'react-native-document-scanner-plugin';
 
 interface CameraModalProps {
   visible: boolean;
@@ -13,8 +12,15 @@ export function CameraModal({ visible, onClose, onCapture }: CameraModalProps) {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const startScan = async () => {
+    if (Platform.OS === 'web') {
+      Alert.alert('Scan belum tersedia', 'Fitur scan struk saat ini hanya tersedia di Android atau iOS.');
+      onClose();
+      return;
+    }
+
     try {
       setIsProcessing(true);
+      const { default: DocumentScanner } = await import('react-native-document-scanner-plugin');
       const { scannedImages } = await DocumentScanner.scanDocument({
         maxNumDocuments: 1,
       });

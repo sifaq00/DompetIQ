@@ -6,9 +6,14 @@ import Animated, {
   withSpring 
 } from 'react-native-reanimated';
 
+type TabIcon = React.ComponentType<{
+  size?: number;
+  color?: string;
+}>;
+
 interface AnimatedTabButtonProps {
   tab: string;
-  Icon: any;
+  Icon: TabIcon;
   isActive: boolean;
   onPress: () => void;
 }

@@ -7,7 +7,7 @@ import { buildMonthlyBudgetOverview, getTodaySpend, getTopCategorySpend, getCate
 import { buildWeeklySummary } from '../services/insightService';
 import { aiService } from '../services/aiService';
 import { predictionService } from '../services/predictionService';
-import { formatLocalMonthKey } from '../utils/date';
+import { addDays, formatLocalMonthKey, getLocalMonthKey, parseStoredDate, startOfLocalDay } from '../utils/date';
 
 export interface UseAppLogicProps {
   repository: TransactionRepository;
@@ -35,7 +35,7 @@ export function useAppLogic({ repository, defaultMonthlyBudget }: UseAppLogicPro
   };
   const [historyFilter, setHistoryFilter] = useState('');
   const [historyMonthFilter, setHistoryMonthFilter] = useState<string>(
-    new Date().toISOString().slice(0, 7)
+    formatLocalMonthKey()
   );
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
   const [customCategoryText, setCustomCategoryText] = useState('');
@@ -105,24 +105,23 @@ export function useAppLogic({ repository, defaultMonthlyBudget }: UseAppLogicPro
   );
 
   const upcomingBills = useMemo(() => {
-    const today = new Date();
-    const threeDaysLater = new Date();
-    threeDaysLater.setDate(today.getDate() + 3);
+    const today = startOfLocalDay();
+    const threeDaysLater = addDays(today, 3);
 
     return recurringExpenses.filter(expense => {
-      const dueDate = new Date(expense.nextDate);
+      const dueDate = startOfLocalDay(parseStoredDate(expense.nextDate));
       return dueDate >= today && dueDate <= threeDaysLater && expense.active;
     });
   }, [recurringExpenses]);
 
   const sortedTransactions = useMemo(() => [...transactions].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    (a, b) => parseStoredDate(b.date).getTime() - parseStoredDate(a.date).getTime(),
   ), [transactions]);
 
   const filteredTransactions = useMemo(() => {
     let result = sortedTransactions;
     if (historyMonthFilter && historyMonthFilter !== 'ALL') {
-      result = result.filter(item => item.date.startsWith(historyMonthFilter));
+      result = result.filter((item) => getLocalMonthKey(item.date) === historyMonthFilter);
     }
     const keyword = historyFilter.trim().toLowerCase();
     if (keyword) {

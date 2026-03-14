@@ -36,6 +36,12 @@ const DEFAULT_MONTHLY_BUDGET = 3_000_000;
 const repository = Platform.OS === 'web' 
   ? new InMemoryTransactionRepository() 
   : new SQLiteTransactionRepository();
+const TAB_ICONS = {
+  Beranda: Wallet,
+  Riwayat: History,
+  Insight: PieChart,
+  Rutin: CalendarClock,
+} as const;
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -94,6 +100,8 @@ function AppContent() {
             categoryLimitsInput={logic.categoryLimitsInput}
             setCategoryLimitsInput={logic.setCategoryLimitsInput}
             categorySpendMap={logic.categorySpendMap}
+            monthlyBudgetInput={logic.monthlyBudgetInput}
+            setMonthlyBudgetInput={logic.setMonthlyBudgetInput}
             backupExportText={logic.backupExportText}
             backupExportCsvText={logic.backupExportCsvText}
             backupImportText={logic.backupImportText}
@@ -103,6 +111,7 @@ function AppContent() {
               handleAddCustomCategory: logic.handleAddCustomCategory,
               handleSubmitTransaction: logic.handleSubmitTransaction,
               handleSaveCategoryLimit: logic.handleSaveCategoryLimit,
+              handleSaveMonthlyBudget: logic.handleSaveMonthlyBudget,
               handleExportBackup: logic.handleExportBackup,
               handleExportCsv: logic.handleExportCsv,
               handleImportBackup: logic.handleImportBackup,
@@ -158,11 +167,7 @@ function AppContent() {
       </View>
       <View className="flex-row items-end justify-around bg-white pb-6 pt-2 px-2 shadow-sm z-50">
         {(['Beranda', 'Riwayat', 'Insight', 'Rutin'] as const).map((tab) => {
-          let Icon;
-          if (tab === 'Beranda') Icon = Wallet;
-          else if (tab === 'Riwayat') Icon = History;
-          else if (tab === 'Insight') Icon = PieChart;
-          else if (tab === 'Rutin') Icon = CalendarClock;
+          const Icon = TAB_ICONS[tab];
 
           return (
             <AnimatedTabButton

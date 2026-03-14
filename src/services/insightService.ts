@@ -1,4 +1,5 @@
 import type { Transaction } from '../models/transaction';
+import { parseStoredDate } from '../utils/date';
 
 function getWeekRange(now = new Date()): { start: Date; end: Date } {
   const day = now.getDay();
@@ -27,7 +28,7 @@ export function buildWeeklySummary(transactions: Transaction[]): string {
   const { start, end } = getWeekRange();
 
   const weeklyTransactions = transactions.filter((item) => {
-    const date = new Date(item.date);
+    const date = parseStoredDate(item.date);
     return date >= start && date <= end;
   });
 

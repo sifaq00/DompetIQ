@@ -1,4 +1,5 @@
 import type { Transaction } from '../models/transaction';
+import { formatLocalDate, getLocalDateKey, getLocalMonthKey } from '../utils/date';
 
 export type BudgetOverview = {
   limit: number;
@@ -13,7 +14,7 @@ export function buildMonthlyBudgetOverview(
   monthKey: string,
 ): BudgetOverview {
   const used = transactions
-    .filter((item) => item.date.startsWith(monthKey))
+    .filter((item) => getLocalMonthKey(item.date) === monthKey)
     .reduce((acc, item) => acc + item.amount, 0);
 
   const remaining = monthlyLimit - used;
@@ -28,13 +29,10 @@ export function buildMonthlyBudgetOverview(
 }
 
 export function getTodaySpend(transactions: Transaction[]): number {
-  const today = new Date();
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
-    today.getDate(),
-  ).padStart(2, '0')}`;
+  const todayKey = formatLocalDate();
 
   return transactions
-    .filter((item) => item.date.startsWith(todayKey))
+    .filter((item) => getLocalDateKey(item.date) === todayKey)
     .reduce((acc, item) => acc + item.amount, 0);
 }
 
@@ -46,7 +44,7 @@ export function getTopCategorySpend(
   const bucket = new Map<string, number>();
 
   for (const item of transactions) {
-    if (!item.date.startsWith(monthKey)) continue;
+    if (getLocalMonthKey(item.date) !== monthKey) continue;
 
     const previous = bucket.get(item.category) ?? 0;
     bucket.set(item.category, previous + item.amount);
@@ -65,7 +63,7 @@ export function getCategorySpendMap(
   const output: Record<string, number> = {};
 
   for (const item of transactions) {
-    if (!item.date.startsWith(monthKey)) continue;
+    if (getLocalMonthKey(item.date) !== monthKey) continue;
     output[item.category] = (output[item.category] ?? 0) + item.amount;
   }
 

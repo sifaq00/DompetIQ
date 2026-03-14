@@ -2,79 +2,202 @@ export interface OCRParsedResult {
   amount: number | null;
   date: string | null;
   possibleCategory: string | null;
+  merchant: string | null;
 }
 
+type AmountCandidate = {
+  amount: number;
+  score: number;
+};
+
 export class OCRParser {
-  /**
-   * Main entry for parsing raw OCR text
-   */
+  private static readonly TOTAL_KEYWORDS = [
+    'grand total',
+    'total belanja',
+    'total pembelian',
+    'jumlah bayar',
+    'jumlah tagihan',
+    'tagihan',
+    'jumlah',
+    'total',
+    'ttl',
+    'bayar',
+    'payment',
+    'paid',
+    'dibayar',
+    'debit',
+    'kredit',
+    'cash',
+    'tunai',
+    'due',
+    'netto',
+  ];
+
+  private static readonly NEGATIVE_KEYWORDS = [
+    'subtotal',
+    'sub total',
+    'sub-total',
+    'tax',
+    'pajak',
+    'ppn',
+    'pb1',
+    'diskon',
+    'discount',
+    'disc',
+    'promo',
+    'voucher',
+    'change',
+    'kembali',
+    'kembalian',
+    'admin',
+    'service',
+    'servis',
+    'biaya',
+    'qty',
+    'jumlah item',
+    'total item',
+    'kartu',
+    'card',
+  ];
+
   static parse(text: string): OCRParsedResult {
-    const lines = text.split('\n').map(l => l.trim().toLowerCase());
-    
+    const lines = text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+
     return {
       amount: this.extractAmount(lines),
       date: this.extractDate(text),
-      possibleCategory: null, // Will be handled by AIService using suggestCategory
+      possibleCategory: null,
+      merchant: this.extractMerchant(lines),
     };
   }
 
-  /**
-   * Find the most likely "Total" amount in a receipt
-   * Strategies:
-   * 1. Keywords like 'total', 'grand total', 'jumlah'
-   * 2. Finding the largest number near the bottom
-   */
   private static extractAmount(lines: string[]): number | null {
-    let candidateAmount: number | null = null;
-    const totalKeywords = ['total', 'jumlah', 'pembayaran', 'netto', 'grand total', 'due'];
+    const candidates: AmountCandidate[] = [];
 
-    // Search for lines containing keywords + number
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i];
-      if (totalKeywords.some(kw => line.includes(kw))) {
-        // Find the numeric value in this line or the next line
-        const numbers = line.match(/\d+([.,]\d+)?/g);
-        if (numbers) {
-          const val = this.cleanNumber(numbers[numbers.length - 1]);
-          if (val > 100) return val; // Heuristic: amounts usually > 100
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index];
+      const lowerLine = line.toLowerCase();
+      const numbers = this.extractNumericTokens(line);
+
+      if (numbers.length === 0) continue;
+
+      for (const token of numbers) {
+        const amount = this.cleanNumber(token);
+        if (!Number.isFinite(amount) || amount < 100 || amount > 10_000_000) continue;
+
+        let score = amount;
+
+        if (this.TOTAL_KEYWORDS.some((keyword) => lowerLine.includes(keyword))) {
+          score += 5_000_000;
         }
-        
-        // Check next line
-        if (i + 1 < lines.length) {
-          const nextLineNumbers = lines[i+1].match(/\d+([.,]\d+)?/g);
-          if (nextLineNumbers) {
-            const val = this.cleanNumber(nextLineNumbers[nextLineNumbers.length - 1]);
-            if (val > 100) return val;
+
+        if (this.NEGATIVE_KEYWORDS.some((keyword) => lowerLine.includes(keyword))) {
+          score -= 4_000_000;
+        }
+
+        if (index >= lines.length - 4) {
+          score += 250_000;
+        }
+
+        if (/rp/i.test(line)) {
+          score += 100_000;
+        }
+
+        candidates.push({ amount, score });
+      }
+
+      // Cek baris berikutnya untuk nilai, jika baris ini berisi keyword total tanpa nilai yang valid
+      if (this.TOTAL_KEYWORDS.some((keyword) => lowerLine.includes(keyword))) {
+        // Coba lihat sampai 2 baris ke depan karena terkadang terpotong newline ganda
+        for (let j = 1; j <= 2; j++) {
+          if (index + j < lines.length) {
+            const nextLineNumbers = this.extractNumericTokens(lines[index + j]);
+            for (const token of nextLineNumbers) {
+              const amount = this.cleanNumber(token);
+              if (!Number.isFinite(amount) || amount < 100 || amount > 10_000_000) continue;
+
+              candidates.push({
+                amount,
+                score: amount + 4_500_000,
+              });
+            }
           }
         }
       }
     }
 
-    // Fallback: Just look for the largest number found in the text (heuristic)
-    const allNumbers = lines.join(' ').match(/\d+([.,]\d+)?/g) || [];
-    const values = allNumbers.map(n => this.cleanNumber(n)).filter(v => v < 10000000); // Sanity check < 10jt
-    if (values.length > 0) {
-      candidateAmount = Math.max(...values);
+    if (candidates.length === 0) {
+      return null;
     }
 
-    return candidateAmount;
+    return candidates.sort((a, b) => b.score - a.score)[0]?.amount ?? null;
   }
 
   private static extractDate(text: string): string | null {
-    // Regex for typical ID formats: DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD
-    const dateRegex = /(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})|(\d{4})[/-](\d{1,2})[/-](\d{1,2})/;
-    const match = text.match(dateRegex);
-    if (match) {
-      // For now, return the match. In a real app we'd normalize to ISO.
-      return match[0];
+    // DD/MM/YYYY, DD-MM-YYYY, YYYY/MM/DD, YYYY-MM-DD
+    // Atau format bulan huruf seperti 14 Mar 2026, 14 Maret 2026
+    const dateRegexInfoBaru =
+      /(\d{1,2})[\s/-]([a-zA-Z]{3,9}|\d{1,2})[\s/-](\d{2,4})|(\d{4})[\s/-](\d{1,2})[\s/-](\d{1,2})/;
+    const match = text.match(dateRegexInfoBaru);
+    
+    // Normalisasi format ke YYYY-MM-DD standar atau biarkan string date utuh (nanti di parsing)
+    return match?.[0] ?? null;
+  }
+
+  private static extractMerchant(lines: string[]): string | null {
+    const IGNORED_HEADERS = ['selamat', 'welcome', 'npwp', 'jl.', 'jalan', 'telp', 'no.', 'nota', 'struk', 'kasir', 'tanggal'];
+
+    for (const line of lines.slice(0, 7)) {
+      const normalized = line.replace(/[^\p{L}\p{N}\s.&-]/gu, '').trim();
+      if (!normalized) continue;
+      if (this.extractNumericTokens(normalized).length > 0) continue;
+      if (normalized.length < 3) continue;
+
+      const lower = normalized.toLowerCase();
+      if (IGNORED_HEADERS.some((h) => lower.includes(h))) continue;
+
+      return normalized;
     }
+
     return null;
   }
 
-  private static cleanNumber(numStr: string): number {
-    // Replace comma with dot for parsing, then remove all non-digits except decimal
-    const normalized = numStr.replace(/,/g, '.').replace(/[^\d.]/g, '');
-    const val = parseFloat(normalized);
-    return isNaN(val) ? 0 : val;
+  private static extractNumericTokens(line: string): string[] {
+    return line.match(/(?:rp\.?\s*)?\d[\d.,]*/gi) ?? [];
+  }
+
+  private static cleanNumber(token: string): number {
+    const normalized = token.replace(/rp\.?\s*/gi, '').trim();
+    if (!normalized) return 0;
+
+    const hasComma = normalized.includes(',');
+    const hasDot = normalized.includes('.');
+
+    if (hasComma && hasDot) {
+      return Number(normalized.replace(/\./g, '').replace(',', '.'));
+    }
+
+    if (hasComma) {
+      const parts = normalized.split(',');
+      const decimalCandidate = parts.at(-1) ?? '';
+      if (decimalCandidate.length <= 2) {
+        return Number(normalized.replace(/\./g, '').replace(',', '.'));
+      }
+      return Number(normalized.replace(/,/g, ''));
+    }
+
+    if (hasDot) {
+      const parts = normalized.split('.');
+      const decimalCandidate = parts.at(-1) ?? '';
+      if (decimalCandidate.length <= 2 && parts.length === 2) {
+        return Number(normalized.replace(',', ''));
+      }
+      return Number(normalized.replace(/\./g, ''));
+    }
+
+    return Number(normalized.replace(/[^\d]/g, ''));
   }
 }

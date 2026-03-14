@@ -1,3 +1,5 @@
+import { parseStoredDate } from './date';
+
 export function formatIDR(value: number): string {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
@@ -11,5 +13,5 @@ export function formatShortDate(isoDate: string): string {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
-  }).format(new Date(isoDate));
+  }).format(parseStoredDate(isoDate));
 }

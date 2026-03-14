@@ -1,6 +1,7 @@
 // Placeholder for Tahap 2 Prediction capabilities
 
 import type { Transaction } from '../models/transaction';
+import { getLocalMonthKey } from '../utils/date';
 
 export type PredictionResult = {
   estimatedTotal: number;
@@ -14,7 +15,7 @@ export class PredictionService {
    */
   predictEndOfMonthExpense(transactions: Transaction[], monthlyLimit: number, currentMonthKey: string): PredictionResult {
     // Basic stub logic
-    const currentMonthTx = transactions.filter(t => t.date.startsWith(currentMonthKey));
+    const currentMonthTx = transactions.filter((t) => getLocalMonthKey(t.date) === currentMonthKey);
     const totalSpent = currentMonthTx.reduce((acc, t) => acc + t.amount, 0);
 
     const today = new Date();

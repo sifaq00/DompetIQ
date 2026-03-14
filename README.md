@@ -52,6 +52,36 @@ npx eas build -p ios
 
 > Catatan: build iOS final butuh akun Apple Developer.
 
+## Build iOS via GitHub Actions
+Repo ini sudah punya workflow GitHub Actions untuk memicu `EAS Build` iOS di Mac runner:
+
+- Workflow: `.github/workflows/ios-eas-build.yml`
+- Trigger: manual lewat tab `Actions`
+- Profile yang tersedia: `development`, `preview`, `production`
+
+Langkah setup:
+```bash
+npx eas login
+npx eas token:create
+```
+
+Lalu simpan token itu di GitHub repository:
+- `Settings`
+- `Secrets and variables`
+- `Actions`
+- buat secret baru: `EXPO_TOKEN`
+
+Sesudah itu:
+1. Push branch ini ke GitHub
+2. Buka tab `Actions`
+3. Jalankan workflow `iOS EAS Build`
+4. Pilih profile build yang diinginkan
+
+Catatan penting:
+- Workflow ini memicu build iOS lewat EAS, bukan build Xcode lokal.
+- Signing iOS tetap bergantung pada akses Apple Developer yang terhubung ke akun Expo/EAS kamu.
+- Untuk profile `development`, hasilnya cocok dipakai bersama `expo start --dev-client`.
+
 ## Struktur penting
 ```text
 App.tsx

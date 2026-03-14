@@ -2,6 +2,7 @@ import React from 'react';
 import { FlatList, View, Text, TextInput, ScrollView, Pressable } from 'react-native';
 import { Transaction } from '../models/transaction';
 import { formatIDR, formatShortDate } from '../utils/formatters';
+import { formatLocalMonthKey } from '../utils/date';
 
 interface HistoryScreenProps {
   transactions: Transaction[];
@@ -26,7 +27,7 @@ export function HistoryScreen({
   const monthOptions = Array.from({ length: 6 }).map((_, i) => {
     const d = new Date();
     d.setMonth(d.getMonth() - i);
-    const value = d.toISOString().slice(0, 7);
+    const value = formatLocalMonthKey(d);
     const label = new Intl.DateTimeFormat('id-ID', { month: 'short', year: 'numeric' }).format(d);
     return { value, label };
   });
@@ -80,7 +81,7 @@ export function HistoryScreen({
           <View className="flex-1 mr-3">
             <Text className="text-base font-bold text-slate-800 font-sans tracking-tight">{item.category}</Text>
             <Text className="text-xs text-slate-500 mt-1 font-sans font-medium">
-              {formatShortDate(item.date)} {item.note ? `• ${item.note}` : ''}
+              {formatShortDate(item.date)} {item.note ? `- ${item.note}` : ''}
             </Text>
             <View className="flex-row gap-2 mt-2.5">
               <Pressable className="bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200" onPress={() => actions.onQuickEdit(item)}>
